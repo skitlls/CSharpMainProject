@@ -2,6 +2,8 @@
 using System.Linq;
 using Model.Runtime.Projectiles;
 using UnityEngine;
+using Model;
+using Utilities;
 
 namespace UnitBrains.Player
 {
@@ -13,6 +15,8 @@ namespace UnitBrains.Player
         private float _temperature = 0f;
         private float _cooldownTime = 0f;
         private bool _overheated;
+
+        List<Vector2Int> _targetOutOfRange = new List<Vector2Int>();
         
         protected override void GenerateProjectiles(Vector2Int forTarget, List<BaseProjectile> intoList)
         {
@@ -36,7 +40,14 @@ namespace UnitBrains.Player
 
         public override Vector2Int GetNextStep()
         {
-            return base.GetNextStep();
+            Vector2Int targetPosition = _targetOutOfRange.Count > 0 ? _targetOutOfRange[0] : unit.Pos;
+            if (IsTargetInRange(targetPosition)) 
+            {
+                return unit.Pos;
+            }
+            else return unit.Pos.CalcNextStepTowards(targetPosition);
+            
+            
         }
 
         protected override List<Vector2Int> SelectTargets()
@@ -44,25 +55,43 @@ namespace UnitBrains.Player
             ///////////////////////////////////////
             // Homework 1.4 (1st block, 4rd module)
             ///////////////////////////////////////
-            List<Vector2Int> result = GetReachableTargets();
-
+            List<Vector2Int> result = new List<Vector2Int>(GetAllTargets());
+            _targetOutOfRange.Clear();                      
             float minDistance = float.MaxValue;
-            Vector2Int firstTarget = Vector2Int.zero;
-
-            if (result.Count == 0)
-            {
-                return result;
-            }
+            Vector2Int firstTarget = Vector2Int.zero;          
                         
-            foreach (var target in result)
-
+            if (result.Count > 0)
             {
-                if (minDistance >= DistanceToOwnBase(target))
+                foreach (Vector2Int target in GetAllTargets()) 
                 {
-                    minDistance = DistanceToOwnBase(target);
-                    firstTarget = target;
+
+                    if (minDistance >= DistanceToOwnBase(target))
+                    {
+
+                        minDistance = DistanceToOwnBase(target);
+                        firstTarget = target;
+                    }
+
+                    if (minDistance < float.MaxValue)
+                    {
+                        if (IsTargetInRange(firstTarget))
+                        {
+                            result.Add(firstTarget);
+                        }
+                        _targetOutOfRange.Add(firstTarget);
+                    }
+                    else
+                    {
+                        Vector2Int enemyBase = runtimeModel.RoMap.Bases[IsPlayerUnitBrain ? RuntimeModel.BotPlayerId : RuntimeModel.PlayerId];
+                        result.Add(enemyBase);
+
+                    }
                 }
+
+                
             }
+            
+            
 
             result.Clear();
             result.Add(firstTarget);
